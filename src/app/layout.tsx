@@ -32,7 +32,7 @@ export default function RootLayout({
       suppressHydrationWarning
       className={`${inter.variable} ${poppins.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col font-body bg-background text-text transition-colors duration-300 relative">
+      <body className="min-h-full flex flex-col font-body bg-background text-text luma-fade relative">
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
