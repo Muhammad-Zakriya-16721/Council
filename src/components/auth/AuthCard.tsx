@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Mail, Lock, User as UserIcon, Compass, ArrowRight, AlertCircle, CheckCircle } from "lucide-react";
 import MagneticButton from "@/components/MagneticButton";
@@ -19,10 +19,25 @@ interface AuthCardProps {
   borderState: BorderState;
 }
 
-const shakeVariants = {
+const cardShakeVariants = {
   shake: {
-    x: [0, -8, 8, -8, 8, -4, 4, 0],
-    transition: { duration: 0.45, ease: "easeInOut" }
+    x: [0, -4, 4, -4, 4, -2, 2, 0],
+    transition: { duration: 0.4, ease: "easeInOut" }
+  },
+  idle: { x: 0 }
+};
+
+// Combined input variants (handles both staggered fade-in AND shake animations)
+const inputFieldVariants = {
+  hidden: { opacity: 0, y: 12 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { type: "spring" as const, stiffness: 350, damping: 25 }
+  },
+  shake: {
+    x: [0, -6, 6, -6, 6, -3, 3, 0],
+    transition: { duration: 0.35, ease: "easeInOut" }
   },
   idle: { x: 0 }
 };
@@ -33,7 +48,6 @@ const arrowVariants = {
   tap: { x: 6, scale: 0.95 }
 };
 
-// Form items staggered slide animation variants
 const formContainerVariants = {
   hidden: { opacity: 0 },
   visible: {
@@ -49,7 +63,7 @@ const formContainerVariants = {
   }
 };
 
-const formItemVariants = {
+const submitButtonVariants = {
   hidden: { opacity: 0, y: 12 },
   visible: {
     opacity: 1,
@@ -72,11 +86,49 @@ export default function AuthCard({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
+  
+  // Custom states for focused keyboard alignment and password visibility
+  const [showPassword, setShowPassword] = useState(false);
+  const [shakeField, setShakeField] = useState<"email" | "password" | "name" | "both" | null>(null);
+
+  const emailRef = useRef<HTMLInputElement>(null);
+  const nameRef = useRef<HTMLInputElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
 
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const isEmailValid = emailRegex.test(email);
   const isPasswordValid = password.length >= 6;
   const isNameValid = name.trim().length > 0;
+
+  // Auto-Focus transition: Focuses correct fields as user moves tabs
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (activeTab === "register") {
+        nameRef.current?.focus();
+      } else {
+        emailRef.current?.focus();
+      }
+    }, 120); // Sync with activeTab pill animation complete
+    return () => clearTimeout(timer);
+  }, [activeTab]);
+
+  // Handle shake triggers based on incoming error details
+  useEffect(() => {
+    if (errorMsg) {
+      const lower = errorMsg.toLowerCase();
+      if (lower.includes("email")) {
+        setShakeField("email");
+      } else if (lower.includes("password") || lower.includes("credential")) {
+        setShakeField(activeTab === "password" ? "both" : "password");
+      } else if (lower.includes("name")) {
+        setShakeField("name");
+      } else {
+        setShakeField("both");
+      }
+      const timer = setTimeout(() => setShakeField(null), 500);
+      return () => clearTimeout(timer);
+    }
+  }, [errorMsg, activeTab]);
 
   const handleTabSwitch = (tab: TabType) => {
     setActiveTab(tab);
@@ -90,12 +142,28 @@ export default function AuthCard({
 
   const handleQuickSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isEmailValid) {
+      setShakeField("email");
+      setTimeout(() => setShakeField(null), 500);
+    }
     onSubmitQuick(email);
   };
 
   const handlePasswordSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (activeTab === "quick") return;
+
+    if (!isEmailValid) {
+      setShakeField("email");
+      setTimeout(() => setShakeField(null), 500);
+    } else if (activeTab === "register" && !isNameValid) {
+      setShakeField("name");
+      setTimeout(() => setShakeField(null), 500);
+    } else if (!isPasswordValid) {
+      setShakeField("password");
+      setTimeout(() => setShakeField(null), 500);
+    }
+
     onSubmitPassword(activeTab, email, password, name);
   };
 
@@ -115,8 +183,8 @@ export default function AuthCard({
   return (
     <motion.div
       layout
-      variants={shakeVariants as any}
-      animate={borderState === "error" ? "shake" : "idle"}
+      variants={cardShakeVariants as any}
+      animate={borderState === "error" && shakeField === null ? "shake" : "idle"}
       transition={{ type: "spring", stiffness: 350, damping: 28 }}
       className={`w-full max-w-md p-8 rounded-2xl bg-card backdrop-blur-xl transition-all duration-500 ${getCardStyle()}`}
     >
@@ -142,7 +210,7 @@ export default function AuthCard({
         ))}
       </div>
 
-      {/* Forms Wrapper (Autoresizes smoothly, borderless inputs with radial glow focus states) */}
+      {/* Forms Wrapper */}
       <div className="relative">
         <AnimatePresence mode="wait">
           {activeTab === "quick" && (
@@ -156,7 +224,11 @@ export default function AuthCard({
               noValidate
               className="flex flex-col gap-4"
             >
-              <motion.div variants={formItemVariants} className="flex flex-col gap-2">
+              <motion.div 
+                variants={inputFieldVariants as any}
+                animate={shakeField === "email" || shakeField === "both" ? "shake" : "visible"}
+                className="flex flex-col gap-2"
+              >
                 <label className="text-[10px] font-bold text-secondary uppercase tracking-widest flex items-center gap-1.5">
                   <motion.span
                     animate={{ 
@@ -174,17 +246,18 @@ export default function AuthCard({
                   <span>Email Address</span>
                 </label>
                 <input
+                  ref={emailRef}
                   type="email"
                   placeholder="yourname@domain.com"
                   value={email}
                   onChange={(e) => handleInputChange(setEmail, e.target.value)}
-                  className="px-4 py-2.5 text-sm rounded-lg bg-input-bg text-primary placeholder-gray-500 focus:outline-none focus:ring-4 focus:ring-accent/8 focus:bg-card focus:shadow-[0_4px_20px_rgba(59,130,246,0.04)] shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)] transition-all duration-300"
+                  className="px-4 py-2.5 text-sm rounded-lg bg-input-bg text-primary placeholder-gray-500 focus:outline-none focus:ring-4 focus:ring-accent/8 focus:bg-card focus:shadow-[0_4px_20px_rgba(59,130,246,0.04)] shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)] transition-all duration-300 w-full"
                   required
                 />
               </motion.div>
 
               <MagneticButton
-                variants={formItemVariants}
+                variants={submitButtonVariants}
                 whileHover="hover"
                 whileTap="tap"
                 initial="initial"
@@ -213,7 +286,11 @@ export default function AuthCard({
               className="flex flex-col gap-4"
             >
               {activeTab === "register" && (
-                <motion.div variants={formItemVariants} className="flex flex-col gap-2">
+                <motion.div 
+                  variants={inputFieldVariants as any}
+                  animate={shakeField === "name" ? "shake" : "visible"}
+                  className="flex flex-col gap-2"
+                >
                   <label className="text-[10px] font-bold text-secondary uppercase tracking-widest flex items-center gap-1.5">
                     <motion.span
                       animate={{ 
@@ -231,17 +308,22 @@ export default function AuthCard({
                     <span>Full Name</span>
                   </label>
                   <input
+                    ref={nameRef}
                     type="text"
                     placeholder="Your Name..."
                     value={name}
                     onChange={(e) => handleInputChange(setName, e.target.value)}
-                    className="px-4 py-2.5 text-sm rounded-lg bg-input-bg text-primary placeholder-gray-500 focus:outline-none focus:ring-4 focus:ring-accent/8 focus:bg-card focus:shadow-[0_4px_20px_rgba(59,130,246,0.04)] shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)] transition-all duration-300"
+                    className="px-4 py-2.5 text-sm rounded-lg bg-input-bg text-primary placeholder-gray-500 focus:outline-none focus:ring-4 focus:ring-accent/8 focus:bg-card focus:shadow-[0_4px_20px_rgba(59,130,246,0.04)] shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)] transition-all duration-300 w-full"
                     required={activeTab === "register"}
                   />
                 </motion.div>
               )}
 
-              <motion.div variants={formItemVariants} className="flex flex-col gap-2">
+              <motion.div 
+                variants={inputFieldVariants as any}
+                animate={shakeField === "email" || shakeField === "both" ? "shake" : "visible"}
+                className="flex flex-col gap-2"
+              >
                 <label className="text-[10px] font-bold text-secondary uppercase tracking-widest flex items-center gap-1.5">
                   <motion.span
                     animate={{ 
@@ -259,16 +341,21 @@ export default function AuthCard({
                   <span>Email Address</span>
                 </label>
                 <input
+                  ref={emailRef}
                   type="email"
                   placeholder="yourname@domain.com"
                   value={email}
                   onChange={(e) => handleInputChange(setEmail, e.target.value)}
-                  className="px-4 py-2.5 text-sm rounded-lg bg-input-bg text-primary placeholder-gray-500 focus:outline-none focus:ring-4 focus:ring-accent/8 focus:bg-card focus:shadow-[0_4px_20px_rgba(59,130,246,0.04)] shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)] transition-all duration-300"
+                  className="px-4 py-2.5 text-sm rounded-lg bg-input-bg text-primary placeholder-gray-500 focus:outline-none focus:ring-4 focus:ring-accent/8 focus:bg-card focus:shadow-[0_4px_20px_rgba(59,130,246,0.04)] shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)] transition-all duration-300 w-full"
                   required
                 />
               </motion.div>
 
-              <motion.div variants={formItemVariants} className="flex flex-col gap-2">
+              <motion.div 
+                variants={inputFieldVariants as any}
+                animate={shakeField === "password" || shakeField === "both" ? "shake" : "visible"}
+                className="flex flex-col gap-2"
+              >
                 <label className="text-[10px] font-bold text-secondary uppercase tracking-widest flex items-center gap-1.5">
                   <motion.span
                     animate={{ 
@@ -285,18 +372,54 @@ export default function AuthCard({
                   </motion.span>
                   <span>Password</span>
                 </label>
-                <input
-                  type="password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => handleInputChange(setPassword, e.target.value)}
-                  className="px-4 py-2.5 text-sm rounded-lg bg-input-bg text-primary placeholder-gray-500 focus:outline-none focus:ring-4 focus:ring-accent/8 focus:bg-card focus:shadow-[0_4px_20px_rgba(59,130,246,0.04)] shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)] transition-all duration-300"
-                  required
-                />
+                <div className="relative w-full">
+                  <input
+                    ref={passwordRef}
+                    type={showPassword ? "text" : "password"}
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => handleInputChange(setPassword, e.target.value)}
+                    className="px-4 py-2.5 pr-12 text-sm rounded-lg bg-input-bg text-primary placeholder-gray-500 focus:outline-none focus:ring-4 focus:ring-accent/8 focus:bg-card focus:shadow-[0_4px_20px_rgba(59,130,246,0.04)] shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)] transition-all duration-300 w-full"
+                    required
+                  />
+                  {/* Eye Icon Reveal button with SVG Path length Draw Animation */}
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="cursor-pointer absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-primary transition-colors p-1"
+                  >
+                    <svg
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="w-4.5 h-4.5"
+                    >
+                      {/* Outer Eye */}
+                      <path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0z" />
+                      {/* Pupil */}
+                      <circle cx="12" cy="12" r="3" />
+                      {/* Slash drawing path */}
+                      <motion.line
+                        x1="3"
+                        y1="3"
+                        x2="21"
+                        y2="21"
+                        initial={{ pathLength: 0 }}
+                        animate={{ pathLength: showPassword ? 0 : 1 }}
+                        transition={{ duration: 0.22, ease: "easeInOut" }}
+                      />
+                    </svg>
+                  </button>
+                </div>
               </motion.div>
 
               <MagneticButton
-                variants={formItemVariants}
+                variants={submitButtonVariants}
                 whileHover="hover"
                 whileTap="tap"
                 initial="initial"
@@ -315,7 +438,7 @@ export default function AuthCard({
         </AnimatePresence>
       </div>
 
-      {/* Warnings / Error Alerts with custom slide-down expansion inside card */}
+      {/* Warnings / Error Alerts */}
       <div className="relative">
         <AnimatePresence initial={false}>
           {errorMsg && (
