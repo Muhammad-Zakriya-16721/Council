@@ -36,6 +36,12 @@ export default function Home() {
   const [actionLoading, setActionLoading] = useState(false);
   const [judgeSuccess, setJudgeSuccess] = useState(false);
 
+  // Dynamic Verification feedback card state
+  const [feedbackType, setFeedbackType] = useState<"success" | "error">("success");
+  const [feedbackTitle, setFeedbackTitle] = useState("");
+  const [feedbackDesc, setFeedbackDesc] = useState("");
+  const [isVerificationDone, setIsVerificationDone] = useState(false);
+
   // GSAP element refs for title animation
   const titleRef = useRef<HTMLHeadingElement>(null);
   const subtitleRef = useRef<HTMLParagraphElement>(null);
@@ -44,18 +50,20 @@ export default function Home() {
   useEffect(() => {
     if (user) {
       if (authState === "verification") {
-        setAuthState("success");
-        setBorderState("success");
+        setIsVerificationDone(true);
         const timer = setTimeout(() => {
           setAuthState("dashboard");
-          setBorderState("idle");
+          setIsVerificationDone(false);
         }, 1800);
         return () => clearTimeout(timer);
       } else if (authState === "initial") {
         setAuthState("dashboard");
       }
     } else {
-      setAuthState("initial");
+      // Only reset to initial if we aren't in verification or feedback states
+      if (authState !== "verification" && authState !== "success") {
+        setAuthState("initial");
+      }
     }
   }, [user, authState]);
 
@@ -103,6 +111,19 @@ export default function Home() {
     setTimeout(() => setBorderState("idle"), 1000);
   };
 
+  const getErrorMessage = (err: any): string => {
+    if (!err) return "An unknown error occurred.";
+    if (typeof err === "string") return err;
+    if (err.message && typeof err.message === "string") return err.message;
+    if (err.msg && typeof err.msg === "string") return err.msg;
+    if (err.error_description && typeof err.error_description === "string") return err.error_description;
+    try {
+      const str = JSON.stringify(err);
+      if (str && str !== "{}") return str;
+    } catch {}
+    return "Failed to complete request.";
+  };
+
   const handleQuickAccessSubmit = async (targetEmail: string) => {
     setErrorMsg("");
     setInfoMsg("");
@@ -126,7 +147,8 @@ export default function Home() {
       setBorderState("warning"); // amber glowing state for waiting
       setInfoMsg("A magic link has been sent to your email. Click it to confirm.");
     } catch (err: any) {
-      triggerErrorState(err.message || "Failed to dispatch magic link.");
+      console.error("Quick access error details:", err);
+      triggerErrorState(getErrorMessage(err));
     } finally {
       setActionLoading(false);
     }
@@ -176,7 +198,10 @@ export default function Home() {
         const { error } = await signInWithEmail(targetEmail, targetPassword);
         if (error) throw error;
         
-        // Directly validated
+        // Directly validated successfully
+        setFeedbackType("success");
+        setFeedbackTitle("Access Verified");
+        setFeedbackDesc("Authentication successful. Entering Arena...");
         setAuthState("success");
         setBorderState("success");
         setTimeout(() => {
@@ -185,7 +210,13 @@ export default function Home() {
         }, 1500);
       }
     } catch (err: any) {
-      triggerErrorState(err.message || "Authentication credentials rejected.");
+      console.error("Password auth error details:", err);
+      // Transition to error card state on incorrect credentials!
+      setFeedbackType("error");
+      setFeedbackTitle("Credentials Wrong");
+      setFeedbackDesc(getErrorMessage(err));
+      setAuthState("success"); // Render feed card
+      setBorderState("error");
     } finally {
       setActionLoading(false);
     }
@@ -206,10 +237,11 @@ export default function Home() {
         setBorderState("idle");
       }, 1500);
     } catch (err: any) {
+      console.error("Guest access error details:", err);
       // Clean, custom warnings and shake for the guest access disablement
       const displayMsg = err.message?.includes("Anonymous sign-ins are disabled")
         ? "Anonymous sign-ins are currently disabled. Please enable it in your Supabase Auth Providers dashboard to use Guest sessions."
-        : err.message || "Failed to initialize Guest session.";
+        : getErrorMessage(err);
       triggerErrorState(displayMsg);
     } finally {
       setActionLoading(false);
@@ -230,7 +262,8 @@ export default function Home() {
       setBorderState("success");
       setTimeout(() => setBorderState("idle"), 2000);
     } catch (err: any) {
-      triggerErrorState(err.message || "Failed to escalate connection.");
+      console.error("Judge escalation error details:", err);
+      triggerErrorState(getErrorMessage(err));
     } finally {
       setActionLoading(false);
     }
@@ -245,7 +278,8 @@ export default function Home() {
       setAuthState("initial");
       setBorderState("idle");
     } catch (err: any) {
-      triggerErrorState(err.message || "Sign out encountered an error.");
+      console.error("Sign out error details:", err);
+      triggerErrorState(getErrorMessage(err));
     } finally {
       setActionLoading(false);
     }
@@ -313,6 +347,7 @@ export default function Home() {
           <div className="w-full max-w-md z-10 flex justify-center">
             <VerificationCard
               email={emailSent}
+              isVerified={isVerificationDone}
               onCancel={() => {
                 setAuthState("initial");
                 setErrorMsg("");
@@ -322,10 +357,19 @@ export default function Home() {
           </div>
         )}
 
-        {/* State 3: SUCCESS ANIMATED SCREEN */}
+        {/* State 3: SUCCESS/ERROR FEEDBACK CARD (Glows green/red, draws path, resets or redirects) */}
         {authState === "success" && (
-          <div className="w-full max-w-sm z-10 flex justify-center">
-            <SuccessCard />
+          <div className="w-full max-w-md z-10 flex justify-center">
+            <SuccessCard
+              type={feedbackType}
+              title={feedbackTitle}
+              description={feedbackDesc}
+              onAction={() => {
+                setAuthState("initial");
+                setErrorMsg("");
+                setInfoMsg("");
+              }}
+            />
           </div>
         )}
 

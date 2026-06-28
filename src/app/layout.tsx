@@ -3,6 +3,7 @@ import { Inter, Poppins } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { AuthProvider } from "@/components/auth-provider";
+import BackgroundOrbs from "@/components/BackgroundOrbs";
 
 const inter = Inter({
   variable: "--font-body",
@@ -31,7 +32,7 @@ export default function RootLayout({
       suppressHydrationWarning
       className={`${inter.variable} ${poppins.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col font-body bg-background text-text transition-colors duration-300">
+      <body className="min-h-full flex flex-col font-body bg-background text-text transition-colors duration-300 relative">
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
@@ -40,6 +41,7 @@ export default function RootLayout({
           themes={["light", "dark", "nord"]}
         >
           <AuthProvider>
+            <BackgroundOrbs />
             {children}
           </AuthProvider>
         </ThemeProvider>

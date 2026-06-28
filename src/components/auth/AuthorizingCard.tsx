@@ -1,20 +1,19 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Mail, Loader2 } from "lucide-react";
+import { ShieldCheck, Loader2 } from "lucide-react";
 
 interface AuthorizingCardProps {
   email: string;
   infoMsg: string;
-  onCancel: () => void;
-  borderState: "idle" | "error" | "warning" | "success";
+  onCancel?: () => void;
+  borderState?: "idle" | "error" | "warning" | "success";
 }
 
 export default function AuthorizingCard({
   email,
   infoMsg,
-  onCancel,
-  borderState,
+  borderState = "idle",
 }: AuthorizingCardProps) {
   
   const getCardStyle = () => {
@@ -46,7 +45,7 @@ export default function AuthorizingCard({
           <span className="relative inline-flex rounded-full h-2 w-2 bg-accent"></span>
         </span>
         <span className="text-[9px] font-bold tracking-widest text-accent uppercase">
-          Awaiting Verification
+          Verifying Credentials
         </span>
       </div>
 
@@ -63,41 +62,23 @@ export default function AuthorizingCard({
           className="absolute inset-0 rounded-full bg-accent/15"
         />
         <div className="relative w-12 h-12 rounded-full bg-accent/10 flex items-center justify-center text-accent">
-          <Mail className="w-5 h-5 animate-pulse" />
+          <ShieldCheck className="w-5 h-5 animate-pulse" />
         </div>
       </div>
 
       <div className="flex flex-col gap-2">
-        <h2 className="text-xl font-semibold text-primary">Magic URL Dispatched</h2>
+        <h2 className="text-xl font-semibold text-primary">Validating Secure Token</h2>
         <p className="text-xs text-gray-500 max-w-[280px] mx-auto leading-relaxed">
-          We sent a secure validation link to <span className="font-semibold text-primary">{email}</span>. Click the link in your email to authenticate this browser.
+          Exchanging secure authorization codes with Supabase. Please keep this tab open while we establish your session.
         </p>
       </div>
 
       {infoMsg && (
-        <div className="p-3.5 rounded-xl bg-accent/5 text-accent text-xs font-semibold text-center flex items-start gap-2.5 justify-center leading-relaxed shadow-guest-btn">
+        <div className="p-3.5 rounded-xl bg-accent/5 text-accent text-xs font-semibold text-center flex items-center gap-2.5 justify-center leading-relaxed shadow-guest-btn w-full">
+          <Loader2 className="w-3.5 h-3.5 text-accent animate-spin" />
           <span>{infoMsg}</span>
         </div>
       )}
-
-      {/* Monitoring session pulse */}
-      <div className="flex flex-col items-center gap-2 mt-2">
-        <Loader2 className="w-6 h-6 text-accent animate-spin opacity-85" />
-        <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest animate-pulse">
-          Monitoring session token...
-        </span>
-      </div>
-
-      <div className="w-full border-t border-card-border opacity-30 my-2"></div>
-
-      <motion.button
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
-        onClick={onCancel}
-        className="cursor-pointer text-[10px] text-gray-500 hover:text-primary font-bold uppercase tracking-wider transition-colors"
-      >
-        Cancel Request
-      </motion.button>
     </motion.div>
   );
 }

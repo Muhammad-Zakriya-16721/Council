@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Mail, Lock, User as UserIcon, Compass, ArrowRight, AlertCircle, CheckCircle } from "lucide-react";
+import MagneticButton from "@/components/MagneticButton";
 
 type TabType = "quick" | "password" | "register";
 type BorderState = "idle" | "error" | "warning" | "success";
@@ -182,7 +183,7 @@ export default function AuthCard({
                 />
               </motion.div>
 
-              <motion.button
+              <MagneticButton
                 variants={formItemVariants}
                 whileHover="hover"
                 whileTap="tap"
@@ -196,7 +197,7 @@ export default function AuthCard({
                 <motion.span variants={arrowVariants} className="flex items-center">
                   <ArrowRight className="w-3.5 h-3.5" />
                 </motion.span>
-              </motion.button>
+              </MagneticButton>
             </motion.form>
           )}
 
@@ -294,7 +295,7 @@ export default function AuthCard({
                 />
               </motion.div>
 
-              <motion.button
+              <MagneticButton
                 variants={formItemVariants}
                 whileHover="hover"
                 whileTap="tap"
@@ -308,7 +309,7 @@ export default function AuthCard({
                 <motion.span variants={arrowVariants} className="flex items-center">
                   <ArrowRight className="w-3.5 h-3.5" />
                 </motion.span>
-              </motion.button>
+              </MagneticButton>
             </motion.form>
           )}
         </AnimatePresence>
@@ -356,18 +357,19 @@ export default function AuthCard({
       </div>
 
       {/* Guest Session Access */}
-      <motion.button
+      <MagneticButton
         whileHover={{ scale: 1.012, y: -0.5 }}
         whileTap={{ scale: 0.988 }}
         transition={{ type: "spring", stiffness: 400, damping: 25 }}
         type="button"
         onClick={onGuestAccess}
         disabled={actionLoading}
+        shineColor="rgba(59, 130, 246, 0.08)"
         className="cursor-pointer w-full py-2.5 rounded-lg bg-card shadow-guest-btn text-[10px] font-bold uppercase tracking-widest text-primary hover:bg-black/[0.01] dark:hover:bg-white/[0.01] transition-all duration-300 flex items-center justify-center gap-2"
       >
         <Compass className="w-3.5 h-3.5 text-secondary animate-spin-slow" />
         Continue as Guest
-      </motion.button>
+      </MagneticButton>
     </motion.div>
   );
 }

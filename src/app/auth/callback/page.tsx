@@ -4,13 +4,12 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { motion, AnimatePresence } from "framer-motion";
 import { XCircle, AlertCircle } from "lucide-react";
-import AuthorizingCard from "@/components/auth/AuthorizingCard";
 import SuccessCard from "@/components/auth/SuccessCard";
 
 export default function AuthCallback() {
-  const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
+  const [phase, setPhase] = useState<"verifying" | "confirmed" | "error">("verifying");
   const [errorMessage, setErrorMessage] = useState("");
-  const [countdown, setCountdown] = useState(4);
+  const [countdown, setCountdown] = useState(5);
   const [userEmail, setUserEmail] = useState("");
 
   useEffect(() => {
@@ -21,8 +20,8 @@ export default function AuthCallback() {
         const searchParams = new URLSearchParams(window.location.search);
         const code = searchParams.get("code");
 
-        // Force a minimum 2-second delay to ensure smooth, premium loading wave animations
-        const timerPromise = new Promise((resolve) => setTimeout(resolve, 2000));
+        // Min 3-second delay to show the verified checkmark drawing animation
+        const timerPromise = new Promise((resolve) => setTimeout(resolve, 3000));
         let exchangePromise = Promise.resolve();
 
         if (code) {
@@ -33,7 +32,7 @@ export default function AuthCallback() {
             }
           });
         } else {
-          // If no code in url, check if a session is already active
+          // If no code in url, check if session is active
           exchangePromise = supabase.auth.getSession().then(({ data: { session } }) => {
             if (session?.user?.email) {
               setUserEmail(session.user.email);
@@ -43,13 +42,14 @@ export default function AuthCallback() {
           });
         }
 
-        // Wait for both PKCE exchange to complete AND 2-second animation timer to elapse
+        // Wait for both code exchange AND the 3-second checkmark drawing animation to complete
         await Promise.all([exchangePromise, timerPromise]);
 
-        setStatus("success");
+        // Elevate phase to Confirmed
+        setPhase("confirmed");
 
-        // Countdown timer for automatic closing
-        let count = 4;
+        // Countdown 5 seconds to auto-close the tab (total 8 seconds)
+        let count = 5;
         const interval = setInterval(() => {
           count -= 1;
           setCountdown(count);
@@ -61,9 +61,9 @@ export default function AuthCallback() {
 
         return () => clearInterval(interval);
       } catch (err: any) {
-        // Wait 2 seconds before showing error so the user isn't jarred by instant flashing
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-        setStatus("error");
+        // Wait 2 seconds before showing error so the transition is smooth
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        setPhase("error");
         setErrorMessage(err.message || "An unexpected callback error occurred.");
       }
     };
@@ -78,39 +78,42 @@ export default function AuthCallback() {
       </div>
 
       <AnimatePresence mode="wait">
-        {status === "loading" && (
+        {phase === "verifying" && (
           <motion.div
-            key="authorizing"
+            key="verifying"
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
             transition={{ duration: 0.4 }}
           >
-            <AuthorizingCard
-              email={userEmail || "your profile"}
-              infoMsg="Establishing secure Supabase session..."
-              onCancel={() => {}}
-              borderState="idle"
+            {/* Show success checkmark draw right away while verifying session */}
+            <SuccessCard 
+              title="Confirming Connection"
+              description="Validating secure token with Supabase..."
             />
           </motion.div>
         )}
 
-        {status === "success" && (
+        {phase === "confirmed" && (
           <motion.div
-            key="success"
+            key="confirmed"
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
             transition={{ duration: 0.4 }}
             className="flex flex-col items-center gap-5"
           >
-            <SuccessCard />
+            {/* Morph text to indicate verification completion */}
+            <SuccessCard 
+              title="Account Verified!"
+              description="Your account has been verified, close this tab."
+            />
             
-            {/* Circular Progress Timer Ring */}
+            {/* Dynamic Progress Timer Ring */}
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.8, type: "spring", stiffness: 300, damping: 20 }}
+              transition={{ type: "spring", stiffness: 300, damping: 20 }}
               className="flex flex-col items-center gap-2 mt-2"
             >
               <div className="relative w-12 h-12 flex items-center justify-center select-none">
@@ -125,14 +128,14 @@ export default function AuthCallback() {
                     cx="18"
                     cy="18"
                   />
-                  {/* Animating Circle */}
+                  {/* Draining Circle */}
                   <motion.circle
                     className="text-emerald-500"
                     strokeWidth="3"
                     strokeDasharray="100"
                     initial={{ strokeDashoffset: 0 }}
                     animate={{ strokeDashoffset: 100 }}
-                    transition={{ duration: 4, ease: "linear" }}
+                    transition={{ duration: 5, ease: "linear" }}
                     strokeLinecap="round"
                     stroke="currentColor"
                     fill="transparent"
@@ -144,13 +147,13 @@ export default function AuthCallback() {
                 <span className="absolute text-[10px] font-bold text-primary">{countdown}s</span>
               </div>
               <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-1">
-                Authorizing Tab
+                Auto Closing Tab
               </p>
             </motion.div>
           </motion.div>
         )}
 
-        {status === "error" && (
+        {phase === "error" && (
           <motion.div
             key="error"
             initial={{ opacity: 0, scale: 0.95 }}
