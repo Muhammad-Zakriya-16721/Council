@@ -2,11 +2,12 @@
 
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useMotionValue, useSpring } from "framer-motion";
 
 interface OverlayState {
   x: number;
   y: number;
+  newTheme: string;
   color: string;
   isActive: boolean;
 }
@@ -15,6 +16,10 @@ export function ThemeToggle() {
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const [transitionOverlay, setTransitionOverlay] = useState<OverlayState | null>(null);
+
+  // Motion values to animate the scale of the fluid clipPath
+  const scaleValue = useMotionValue(0);
+  const springScale = useSpring(scaleValue, { stiffness: 90, damping: 18 });
 
   useEffect(() => {
     setMounted(true);
@@ -30,7 +35,6 @@ export function ThemeToggle() {
     const x = e.clientX;
     const y = e.clientY;
 
-    // Direct background colors mapping matching globals.css theme definitions
     const themeBgColors: Record<string, string> = {
       light: "#ffffff",
       dark: "#000000",
@@ -39,28 +43,36 @@ export function ThemeToggle() {
 
     const targetColor = themeBgColors[newTheme] || "#ffffff";
 
-    // 1. Initialize liquid overlay splash centered at click position
+    // Initialize fluid organic shape reveal overlay
     setTransitionOverlay({
       x,
       y,
+      newTheme,
       color: targetColor,
       isActive: true,
     });
 
-    // 2. Switch theme behind the cover once blobs merge and fill the viewport (450ms)
+    // Reset spring value and start the fluid expansion
+    scaleValue.set(0);
+    setTimeout(() => {
+      scaleValue.set(28); // Expand to scale 28 (covers entire viewport)
+    }, 50);
+
+    // Switch underlying theme behind the cover once the screen is fully masked (550ms)
     setTimeout(() => {
       setTheme(newTheme);
-    }, 450);
+    }, 550);
 
-    // 3. Initiate fade out of the splash overlay (700ms)
+    // Transition overlay opacity to 0 (750ms)
     setTimeout(() => {
       setTransitionOverlay((prev) => (prev ? { ...prev, isActive: false } : null));
-    }, 700);
+    }, 750);
 
-    // 4. Dismount transition portal (1000ms)
+    // Dismount overlay component (1050ms)
     setTimeout(() => {
       setTransitionOverlay(null);
-    }, 1000);
+      scaleValue.set(0);
+    }, 1050);
   };
 
   return (
@@ -86,100 +98,50 @@ export function ThemeToggle() {
         ))}
       </div>
 
-      {/* Floating Fluid Liquid Theme transition Overlay */}
+      {/* Full-Screen Fluid Masking Portal Overlay */}
       <AnimatePresence>
         {transitionOverlay && (
           <div className="fixed inset-0 z-[9999] pointer-events-none overflow-hidden select-none">
-            {/* Liquid gooey SVG filter */}
+            {/* SVG ClipPath with morphing liquid blob coordinates */}
             <svg className="absolute w-0 h-0" width="0" height="0">
               <defs>
-                <filter id="theme-gooey-filter">
-                  <feGaussianBlur in="SourceGraphic" stdDeviation="18" result="blur" />
-                  <feColorMatrix 
-                    in="blur" 
-                    mode="matrix" 
-                    values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 28 -14" 
-                    result="goo" 
+                <clipPath id="theme-fluid-clip" clipPathUnits="userSpaceOnUse">
+                  <motion.path
+                    style={{
+                      x: transitionOverlay.x,
+                      y: transitionOverlay.y,
+                      scale: springScale,
+                    }}
+                    animate={{
+                      d: [
+                        "M 0 -100 C 120 -120, 180 -50, 150 50 C 120 150, -50 180, -150 100 C -180 20, -120 -80, 0 -100",
+                        "M 0 -100 C 70 -160, 170 -120, 120 50 C 70 220, -120 120, -120 100 C -120 20, -70 -40, 0 -100",
+                        "M 0 -100 C 140 -80, 120 -20, 150 50 C 180 120, -50 120, -100 100 C -150 80, -120 -80, 0 -100",
+                        "M 0 -100 C 120 -120, 180 -50, 150 50 C 120 150, -50 180, -150 100 C -180 20, -120 -80, 0 -100",
+                      ],
+                    }}
+                    transition={{
+                      d: { repeat: Infinity, duration: 4, ease: "easeInOut" },
+                    }}
                   />
-                  <feBlend in="SourceGraphic" in2="goo" />
-                </filter>
+                </clipPath>
               </defs>
             </svg>
 
-            {/* Gooey container */}
+            {/* Simulated Target Theme Container Wrapper */}
             <motion.div
               initial={{ opacity: 1 }}
               animate={{ opacity: transitionOverlay.isActive ? 1 : 0 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.3 }}
-              className="w-full h-full relative"
-              style={{ filter: "url(#theme-gooey-filter)" }}
+              className={`w-full h-full relative ${transitionOverlay.newTheme}`}
             >
-              {/* Orb 1: Primary expander */}
-              <motion.div
-                initial={{ scale: 0 }}
-                animate={{ scale: 3.2 }}
-                transition={{ duration: 0.65, ease: [0.16, 1, 0.3, 1] }}
-                className="absolute rounded-full"
-                style={{
-                  left: transitionOverlay.x,
-                  top: transitionOverlay.y,
-                  width: "100vmax",
-                  height: "100vmax",
-                  marginLeft: "-50vmax",
-                  marginTop: "-50vmax",
-                  backgroundColor: transitionOverlay.color,
-                }}
-              />
-
-              {/* Orb 2: Fluid splash left offset */}
-              <motion.div
-                initial={{ scale: 0, x: 0, y: 0 }}
-                animate={{ scale: 2.8, x: -140, y: -60 }}
-                transition={{ duration: 0.7, delay: 0.04, ease: [0.16, 1, 0.3, 1] }}
-                className="absolute rounded-full opacity-90"
-                style={{
-                  left: transitionOverlay.x,
-                  top: transitionOverlay.y,
-                  width: "80vmax",
-                  height: "80vmax",
-                  marginLeft: "-40vmax",
-                  marginTop: "-40vmax",
-                  backgroundColor: transitionOverlay.color,
-                }}
-              />
-
-              {/* Orb 3: Fluid splash right offset */}
-              <motion.div
-                initial={{ scale: 0, x: 0, y: 0 }}
-                animate={{ scale: 2.8, x: 140, y: 60 }}
-                transition={{ duration: 0.7, delay: 0.07, ease: [0.16, 1, 0.3, 1] }}
-                className="absolute rounded-full opacity-90"
-                style={{
-                  left: transitionOverlay.x,
-                  top: transitionOverlay.y,
-                  width: "85vmax",
-                  height: "85vmax",
-                  marginLeft: "-42.5vmax",
-                  marginTop: "-42.5vmax",
-                  backgroundColor: transitionOverlay.color,
-                }}
-              />
-
-              {/* Orb 4: Fluid splash top offset */}
-              <motion.div
-                initial={{ scale: 0, x: 0, y: 0 }}
-                animate={{ scale: 2.5, x: 40, y: -160 }}
-                transition={{ duration: 0.75, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
-                className="absolute rounded-full opacity-80"
-                style={{
-                  left: transitionOverlay.x,
-                  top: transitionOverlay.y,
-                  width: "70vmax",
-                  height: "70vmax",
-                  marginLeft: "-35vmax",
-                  marginTop: "-35vmax",
-                  backgroundColor: transitionOverlay.color,
+              {/* Inner screen overlay clipped by the morphing wobbly drop path */}
+              <div 
+                className="absolute inset-0 bg-background transition-colors duration-300"
+                style={{ 
+                  clipPath: "url(#theme-fluid-clip)",
+                  WebkitClipPath: "url(#theme-fluid-clip)" 
                 }}
               />
             </motion.div>
