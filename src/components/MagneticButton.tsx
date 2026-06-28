@@ -30,9 +30,9 @@ export default function MagneticButton({
     const { clientX, clientY } = e;
     const { left, top, width, height } = ref.current.getBoundingClientRect();
     
-    // Magnetic pull coordinates (shifts button center slightly toward cursor)
-    const pullX = (clientX - (left + width / 2)) * 0.28;
-    const pullY = (clientY - (top + height / 2)) * 0.28;
+    // Magnetic pull coordinates (shifts button center slightly toward cursor - reduced by 40% for sublte response)
+    const pullX = (clientX - (left + width / 2)) * 0.17;
+    const pullY = (clientY - (top + height / 2)) * 0.17;
 
     x.set(pullX);
     y.set(pullY);
