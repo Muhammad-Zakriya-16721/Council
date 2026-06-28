@@ -40,7 +40,7 @@ export default function VerificationCard({ email, onCancel, isVerified = false }
     let messageIndex = 0;
     const interval = setInterval(() => {
       if (messageIndex < messages.length) {
-        setLogFeed((prev) => [...prev, messages[messageIndex]]);
+        setLogFeed((prev) => [...prev, messages[messageIndex]].slice(-3));
         messageIndex++;
       } else {
         clearInterval(interval);
